@@ -1,20 +1,30 @@
 ﻿#include "turn.h"
 #include <iostream>
+#include <limits>
 //나는 이 프로그래밍 과제를 다른 사람의 부적절한 도움 없이 완수하였습니다.
 using namespace std;
+
+namespace {
+constexpr int kNoTileAvailable = 10000;
+
+void clearInputLine()
+{
+	cin.clear();
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');
+}
+}
 
 int pcTurn(tile*& trunk, tile*& pc, tile*& usr, int& win)
 {
 	tile* recent = nullptr; //나중에 공개예정
 	int rtvalue = 0;
-	srand(time(NULL));
 	cout << "컴퓨터의 차례입니다\n" << endl;
 
 	rtvalue = getTile(trunk, pc, 3, recent);
-	if (rtvalue == 10000) { //정상, no tile to get
-		recent = pc;
-		while (recent->visibility)
-			recent = recent->next; //안보이는 가장왼쪽
+	if (rtvalue == kNoTileAvailable) { //정상, no tile to get
+		recent = getFirstHiddenTile(pc);
+		if (recent == nullptr)
+			return 301;
 	}
 	else if (rtvalue) return rtvalue; //비정상 rtvalue
 	else {
@@ -25,7 +35,7 @@ int pcTurn(tile*& trunk, tile*& pc, tile*& usr, int& win)
 	if (rtvalue) return rtvalue;
 	win = 0; //승부x
 	do {
-		rtvalue = pcGuess(trunk, pc, usr, recent); //추리
+		rtvalue = pcGuess(trunk, usr, recent); //추리
 		prtTile(trunk, pc, usr);
 		if (!countTile(pc, 2, 0)) {
 			win = 2; //usr승
@@ -42,27 +52,29 @@ int pcTurn(tile*& trunk, tile*& pc, tile*& usr, int& win)
 	return 0;
 }
 
-int pcGuess(tile*& trunk, tile*& pc, tile*& usr, tile*& recent) {
+int pcGuess(tile*& trunk, tile*& usr, tile*& recent) {
 	tile* position = nullptr;
 	cout << "컴퓨터가 추리를 시작합니다" << endl;
 
-	int usrcnt = countTile(usr, 0, 0);
+	int hiddenCount = countTile(usr, 2, 0);
 	int pick = 0;
 
-	while (true) {
-		pick = rand() % usrcnt;
-		position = usr;
-		for (int i = 0; i < pick; i++) {
-			if (position == nullptr)
-				return 401; //exception, should not happen
-			else
-				position = position->next;
+	if (hiddenCount <= 0)
+		return 403;
+
+	pick = rand() % hiddenCount;
+	int hiddenIndex = 0;
+	for (position = usr; position != nullptr; position = position->next) {
+		if (!position->visibility) {
+			if (hiddenIndex == pick) {
+				break;
+			}
+			hiddenIndex++;
 		}
-		if (position == nullptr)
-			return 402; //exception, should not happen
-		else if (position->visibility == 0)  //안보이는것을 뽑을때까지 다시뽑기
-			break;
 	}
+
+	if (position == nullptr)
+		return 402; //exception, should not happen
 
 	tile* obj = position; //추측대상
 	if (obj == nullptr)
@@ -81,6 +93,9 @@ int pcGuess(tile*& trunk, tile*& pc, tile*& usr, tile*& recent) {
 		if (position->white == iswhite && position->visibility == 0)
 			guesslist[j++] = position->number;
 	} //안보이는 iswhite색
+
+	if (j == 0)
+		return 404;
 
 	int guessnum = rand() % j; //숫자 선택
 	cout << "컴퓨터가 " << pick + 1 << "번째 위치의 숫자가 " <<
@@ -107,14 +122,13 @@ int usrTurn(tile*& trunk, tile*& pc, tile*& usr, int& win)
 	tile* recent = nullptr; //나중에 공개예정
 
 	int rtvalue = 0;
-	srand(time(NULL));
 	cout << "플레이어의 차례입니다\n" << endl;
 
 	rtvalue = getTile(trunk, usr, 2, recent);
-	if (rtvalue == 100) { //빈 것
-		recent = usr;
-		while (recent->visibility)
-			recent = recent->next; //가장왼쪽 안보이는거
+	if (rtvalue == kNoTileAvailable) { //빈 것
+		recent = getFirstHiddenTile(usr);
+		if (recent == nullptr)
+			return 501;
 	}
 	else if (rtvalue) return rtvalue; //exception, should not happen
 	else
@@ -124,7 +138,7 @@ int usrTurn(tile*& trunk, tile*& pc, tile*& usr, int& win)
 	if (rtvalue) return rtvalue;
 	win = 0;
 	do {
-		rtvalue = usrGuess(trunk, pc, usr, recent); //추측
+		rtvalue = usrGuess(pc, recent); //추측
 		prtTile(trunk, pc, usr);
 		if (!countTile(pc, 2, 0)) {
 			win = 2; //usr 승
@@ -142,25 +156,44 @@ int usrTurn(tile*& trunk, tile*& pc, tile*& usr, int& win)
 	return 0;
 }
 
-int usrGuess(tile*& trunk, tile*& pc, tile*& usr, tile*& recent) {
-	tile* position = nullptr;
+int usrGuess(tile*& pc, tile*& recent) {
 	cout << "플레이어가 추리를 시작합니다.\n" << "추리하고 싶은 위치와 숫자를 입력해주세요." << endl;
 
 	int guess; //추측대상
 	int guessval; //추측값
+	const int pcDeckCount = countTile(pc, 0, 0);
+	tile* obj = nullptr;
 
-	cin >> guess >> guessval;
-	guess--; //시작을 0으로,....
+	while (true) {
+		if (!(cin >> guess >> guessval)) {
+			clearInputLine();
+			cout << "위치와 숫자를 정수로 다시 입력해주세요." << endl;
+			continue;
+		}
 
-	position = pc;
-	for (int i = 0; i < guess; i++) {
-		if (position == nullptr)
-			return 603; //invalid pc deck, should not happen
-		else
-			position = position->next;
+		if (guess < 1 || guess > pcDeckCount || guessval < 0 || guessval > 11) {
+			cout << "위치는 1부터 " << pcDeckCount << " 사이, 숫자는 0부터 11 사이로 입력해주세요." << endl;
+			continue;
+		}
+
+		obj = pc;
+		for (int i = 1; i < guess; i++) {
+			if (obj == nullptr)
+				return 603; //invalid pc deck, should not happen
+			obj = obj->next;
+		}
+
+		if (obj == nullptr)
+			return 604;
+		if (obj->visibility) {
+			cout << "이미 공개된 타일입니다. 다른 위치를 선택해주세요." << endl;
+			continue;
+		}
+
+		break;
 	}
 
-	tile* obj = position;//추측대상
+	guess--; //시작을 0으로,....
 
 	cout << "플레이어가 " << guess + 1 << "번째 위치의 숫자가 " <<
 		guessval << "라고 추리합니다." << endl;

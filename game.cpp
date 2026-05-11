@@ -1,9 +1,39 @@
 ﻿#include "game.h"
 #include "turn.h"
 #include <iostream>
+#include <limits>
 #include <string>
 //나는 이 프로그래밍 과제를 다른 사람의 부적절한 도움 없이 완수하였습니다.
 using namespace std;
+
+namespace {
+constexpr int kNoTileAvailable = 10000;
+
+tile* findFirstHiddenTile(tile* head)
+{
+	while (head != nullptr && head->visibility) {
+		head = head->next;
+	}
+
+	return head;
+}
+
+bool readBinaryChoice(const char* prompt, bool& value)
+{
+	int input = 0;
+	while (true) {
+		cout << prompt << endl;
+		if (cin >> input && (input == 0 || input == 1)) {
+			value = (input == 1);
+			return true;
+		}
+
+		cin.clear();
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
+		cout << "0 또는 1을 입력하세요." << endl;
+	}
+}
+}
 
 int goGame() {
 	int rtvalue = 0; //프로그램에 원치않는 동작시 특정 리턴값을 리턴하여 종료
@@ -123,8 +153,9 @@ tile* genTile() {
 }
 
 int getTile(tile*& trunk, tile*& tgt, int control, tile*&recent) {  //control 0=black,1=white,2=usr choice,3=random color
-	
-	srand(time(NULL)); //랜덤타임
+	if (trunk == nullptr)
+		return kNoTileAvailable; //might happen,if trunk is empty
+
 	int trunkcnt; //trunk number count
 	int pick; //가져올타일
 	bool color; //choice 저장소
@@ -137,20 +168,18 @@ int getTile(tile*& trunk, tile*& tgt, int control, tile*&recent) {  //control 0=
 	if (b + w != trunkcnt)
 		return 170; //타일 갯수 무결성, should not happen
 
-	if (trunk == nullptr)
-		return 10000; //might happen,if trunk is empty
-
 	if (control != 3) {
 		if (b == 0 || w == 0) {
 			pick = rand() % trunkcnt; //색상 선택권없음
 		}
 		else {
 			if (control == 2) {
-				cout << "가져오고 싶은 타일의 색을 고르세요. (흑:0 백:1):" << endl;
-				cin >> color;
+				readBinaryChoice("가져오고 싶은 타일의 색을 고르세요. (흑:0 백:1):", color);
 			}
+			else if (control == 0 || control == 1)
+				color = (control == 1);
 			else
-				color = control;
+				return 203;
 			while (true) {
 				pick = rand() % trunkcnt;
 				position = trunk;
@@ -256,9 +285,15 @@ int initTile(tile*& trunk, tile*& pc, tile*& usr) {
 	int b = 0;
 	int w = 0;
 	int rtvalue;
-	while (b + w != 4) {
+	while (true) {
 		cout << "가져올 타일의 색 별 개수를 정하세요. (흑 백 순서, 흑+백=4):" << endl;
-		cin >> b >> w;
+		if (cin >> b >> w && b >= 0 && w >= 0 && b + w == 4) {
+			break;
+		}
+
+		cin.clear();
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
+		cout << "흑과 백의 개수를 0 이상의 정수로 입력하고, 합이 4가 되도록 맞춰주세요." << endl;
 	}
 	tile* recent; //용도 없음
 	for (int i = 0; i < b; i++) { //유저흑색
@@ -277,6 +312,11 @@ int initTile(tile*& trunk, tile*& pc, tile*& usr) {
 			return rtvalue;
 	}
 	return 0;
+}
+
+tile* getFirstHiddenTile(tile* head)
+{
+	return findFirstHiddenTile(head);
 }
 
 void plushTile(tile* head)

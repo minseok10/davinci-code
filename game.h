@@ -13,3 +13,4 @@ int getTile(tile*& trunk, tile*& tgt, int control, tile*& recent);  //control 0=
 int initTile(tile*& trunk, tile*& pc, tile*& usr);
 void plushTile(tile* head);
 int prtTile(tile*, tile*, tile*);
+tile* getFirstHiddenTile(tile* head);
