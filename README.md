@@ -36,7 +36,6 @@ C++로 구현한 콘솔 기반 다빈치 코드 보드게임입니다. 객체지
 ├── turn.h/cpp      # 컴퓨터/플레이어 턴 및 추리 로직
 ├── Makefile        # 빌드, 실행, 정리 명령
 ├── Assignment1.pdf # 과제 명세
-├── 문서1.docx       # 과제 보고서 원본
 └── report.pdf      # 과제 보고서 PDF
 ```
 
@@ -94,4 +93,4 @@ g++ -std=c++17 -Wall -Wextra -pedantic main.cpp menus.cpp game.cpp turn.cpp -o d
 
 ## 참고
 
-이 저장소는 프로그래밍 과제 제출물을 GitHub에 정리하기 위한 형태입니다. 원본 과제 명세는 `Assignment1.pdf`, 구현 보고서는 `문서1.docx`와 `report.pdf`에 포함되어 있습니다.
+이 저장소는 프로그래밍 과제 제출물을 GitHub에 정리하기 위한 형태입니다. 원본 과제 명세는 `Assignment1.pdf`, 구현 보고서는 `report.pdf`에 포함되어 있습니다.
