@@ -2,6 +2,12 @@
 
 React + Vite로 만든 2인 로컬 플레이용 다빈치 코드 웹 앱입니다.
 
+## 배포 URL
+
+Cloudflare Pages에 배포된 앱은 아래 주소에서 바로 실행할 수 있습니다.
+
+https://davinci-code-web.pages.dev
+
 ## 기능
 
 - 한 브라우저에서 두 플레이어가 번갈아 플레이합니다.
