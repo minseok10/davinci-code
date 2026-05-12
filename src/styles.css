@@ -321,6 +321,7 @@ h2 {
 .button-row,
 .guess-panel,
 .choice-panel,
+.computer-panel,
 .reveal-panel,
 .game-over {
   display: flex;
@@ -335,9 +336,18 @@ h2 {
 }
 
 .reveal-panel,
+.computer-panel,
 .game-over {
   align-items: center;
   color: #40505d;
+}
+
+.computer-panel {
+  min-height: 44px;
+}
+
+.computer-panel strong {
+  color: #176c72;
 }
 
 .game-over strong {
@@ -365,6 +375,7 @@ h2 {
   .button-row,
   .guess-panel,
   .choice-panel,
+  .computer-panel,
   .reveal-panel,
   .game-over {
     display: grid;
