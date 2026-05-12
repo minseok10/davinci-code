@@ -1,380 +1,268 @@
-﻿#include "game.h"
-#include "turn.h"
-#include <iostream>
-#include <limits>
-#include <string>
-//나는 이 프로그래밍 과제를 다른 사람의 부적절한 도움 없이 완수하였습니다.
-using namespace std;
+#include "game.h"
+
+#include <algorithm>
+#include <stdexcept>
 
 namespace {
-constexpr int kNoTileAvailable = 10000;
+constexpr int kTileCountPerColor = 12;
+constexpr int kInitialHandSize = 4;
 
-tile* findFirstHiddenTile(tile* head)
+std::size_t playerIndex(Player player)
 {
-	while (head != nullptr && head->visibility) {
-		head = head->next;
-	}
-
-	return head;
+	return static_cast<std::size_t>(player);
 }
 
-bool readBinaryChoice(const char* prompt, bool& value)
+bool tileComesBefore(const GameTile& left, const GameTile& right)
 {
-	int input = 0;
-	while (true) {
-		cout << prompt << endl;
-		if (cin >> input && (input == 0 || input == 1)) {
-			value = (input == 1);
-			return true;
-		}
-
-		cin.clear();
-		cin.ignore(numeric_limits<streamsize>::max(), '\n');
-		cout << "0 또는 1을 입력하세요." << endl;
+	if (left.number != right.number) {
+		return left.number < right.number;
 	}
+
+	return left.color == TileColor::Black && right.color == TileColor::White;
 }
 }
 
-int goGame() {
-	int rtvalue = 0; //프로그램에 원치않는 동작시 특정 리턴값을 리턴하여 종료
-	
-	tile* trunk = genTile(); //게임시작시 타일 생성
-	tile* pc = nullptr; 
-	tile* usr = nullptr;
-
-	rtvalue = initTile(trunk, pc, usr); //타일을 각각 4개씩 초기세팅
-	if (rtvalue) {
-		plushTile(trunk);
-		plushTile(pc);
-		plushTile(usr);  //비정상종료
-		return rtvalue;
-	}
-
-	//	cout << trunk << endl << pc << endl << usr << endl;
-	rtvalue = prtTile(trunk, pc, usr);
-	if (rtvalue) {
-		plushTile(trunk);
-		plushTile(pc);
-		plushTile(usr); //비정상종료
-		return rtvalue;
-	}
-	int win = 0; // 0=continue play, 1=pc win, 2=usr win
-	while (!win) {
-		rtvalue = pcTurn(trunk, pc, usr, win);
-		if (rtvalue) {
-			plushTile(trunk);
-			plushTile(pc);
-			plushTile(usr);  //비정상종료
-			return rtvalue;
-		}
-		if (win == 1) {
-			cout << "컴퓨터의 승리입니다" << endl;
-			break;
-		}
-		if (win == 2) {
-			cout << "플레이어의 승리입니다" << endl;
-			break;
-		}
-		rtvalue = usrTurn(trunk, pc, usr, win);
-		if (rtvalue) {
-			plushTile(trunk);
-			plushTile(pc);
-			plushTile(usr);  //비정상종료
-			return rtvalue;
-		}
-		if (win == 1) {
-			cout << "컴퓨터의 승리입니다" << endl;
-			break;
-		}
-		if (win == 2) {
-			cout << "플레이어의 승리입니다" << endl;
-			break;
-		}
-	}
-	prtTile(trunk, pc, usr);
-	cout << "게임이 종료되었습니다. 메뉴로 돌아갑니다\n" << endl;
-
-	plushTile(trunk);
-	plushTile(pc);
-	plushTile(usr); //타일들 동적할당 해제,정상종료
-	return 0;
-}
-
-int countTile(const tile* head, int mode, bool data) {  
-	int i;
-	const tile* position = head;
-	switch (mode) {
-	case 0: //all, no condition
-		for (i = 0; position != nullptr; position = position->next) {
-			i++;
-		}
-		break;
-	case 1: //color data
-		for (i = 0; position != nullptr; position = position->next) {
-			if (position->white == data)
-				i++;
-		}
-		break;
-	case 2: //visibility data
-		for (i = 0; position != nullptr; position = position->next) {
-			if (position->visibility == data)
-				i++;
-		}
-		break;
-	default:
-		return 199;
-	}
-	return i;
-} //mode 0=all,1=white, 2=visibility
-
-tile* genTile() {
-	int i;
-
-	tile* trunk = new tile; //memory alloc
-
-	tile* position = trunk; //linked list seek point
-
-	for (i = 0; i < 24; i++) {
-		position->number = i / 2; //0,0,1,1,2,2,3,3,4,4....
-		position->white = i % 2; //0,1,0,1,0,1,0,1....
-		position->visibility = 0;
-		if (!i)
-			position->prev = nullptr; //처음거
-		if (i == 23)
-			position->next = nullptr; //마지막거
-		else
-		{
-			position->next = new tile;
-			position->next->prev = position;
-		}
-		position = position->next;
-	}
-	return trunk;
-}
-
-int getTile(tile*& trunk, tile*& tgt, int control, tile*&recent) {  //control 0=black,1=white,2=usr choice,3=random color
-	if (trunk == nullptr)
-		return kNoTileAvailable; //might happen,if trunk is empty
-
-	int trunkcnt; //trunk number count
-	int pick; //가져올타일
-	bool color; //choice 저장소
-	int b = 0, w = 0; //trunk number count by color
-	tile* position = nullptr;
-
-	trunkcnt = countTile(trunk, 0, 0);
-	b = countTile(trunk, 1, 0);
-	w = countTile(trunk, 1, 1);
-	if (b + w != trunkcnt)
-		return 170; //타일 갯수 무결성, should not happen
-
-	if (control != 3) {
-		if (b == 0 || w == 0) {
-			pick = rand() % trunkcnt; //색상 선택권없음
-		}
-		else {
-			if (control == 2) {
-				readBinaryChoice("가져오고 싶은 타일의 색을 고르세요. (흑:0 백:1):", color);
-			}
-			else if (control == 0 || control == 1)
-				color = (control == 1);
-			else
-				return 203;
-			while (true) {
-				pick = rand() % trunkcnt;
-				position = trunk;
-				for (int i = 0; i < pick; i++) {
-					if (position == nullptr)
-						return 101; //exception, should not happen
-					else
-						position = position->next;
-				}
-				if (position == nullptr)
-					return 102;
-				else if (position->white == color)
-					break; //원하는 색상이 나올 때까지 다시 뽑는다
-
-			} 
-		}
-	}
-	else {
-		pick = rand() % trunkcnt; //control=3, no color choice
-	}
-
-	position = trunk;
-	for (int i = 0; i < pick; i++) {
-		if (position == nullptr) //exception, should not happen
-			return 103;
-		else
-			position = position->next;
-	}
-	tile* obj = position; //가져올 타일 확정
-
-	recent = obj; //recent 정보 전달
-
-	if (obj == nullptr)
-		return 104;  //exception, should not happen
-	if (obj->prev != nullptr)
-		obj->prev->next = obj->next;
-	else
-		trunk = obj->next;
-
-	if (obj->next != nullptr)
-		obj->next->prev = obj->prev; //바닥 덱 linked list 에서 obj 타일을 꺼낸다.
-
-	obj->prev = nullptr;
-	obj->next = nullptr; //obj 타일 꺼내진 상태
-
-	if (tgt == nullptr) {
-		tgt = obj; //가져오는 곳이 blank인 경우 그냥 삽입
-	}
-	else{ //linked list 적정위치에 삽입
-		position = tgt;
-		while (position != nullptr)
-		{
-			if (position->number > obj->number) { //숫자 작을시에, 바로 왼쪽에 삽입
-				obj->prev = position->prev;
-				obj->next = position;
-				position->prev = obj;
-				if (obj->prev != nullptr)
-					obj->prev->next = obj;
-				break;
-			}
-			else if (position->number == obj->number) { //숫자 같을경우 색비교
-				if (position->white > obj->white) { //position 왼쪽에 삽입
-					obj->prev = position->prev;
-					obj->next = position;
-					position->prev = obj;
-					if (obj->prev != nullptr)
-						obj->prev->next = obj;
-					break;
-				}
-				else if (position->white < obj->white) { //position 오른쪽에 삽입
-					obj->prev = position;
-					obj->next = position->next;
-					position->next = obj;
-					if (obj->next != nullptr)
-						obj->next->prev = obj;
-					break;
-				}
-				else
-					return 201; //숫자같고 색같고, exception, should not happen
-			}
-			else if (position->number < obj->number) { //다음 칸으로 넘어가서 비교준비
-				if (position->next != nullptr) {
-					position = position->next;
-					continue;
-				}
-				else { //position이 마지막 칸일경우 position 오른쪽에 삽입
-					obj->next = nullptr;
-					obj->prev = position;
-					position->next = obj;
-					break;
-				}
-			}
-			else
-				return 202; //exception, should not happen
-		}
-		while (tgt->prev != nullptr)
-			tgt = tgt->prev; //tgt가 linked list의 맨 앞주소 참조가 아닐경우 맨 앞까지 당김
-	}
-	return 0;
-}
-
-int initTile(tile*& trunk, tile*& pc, tile*& usr) {
-	int b = 0;
-	int w = 0;
-	int rtvalue;
-	while (true) {
-		cout << "가져올 타일의 색 별 개수를 정하세요. (흑 백 순서, 흑+백=4):" << endl;
-		if (cin >> b >> w && b >= 0 && w >= 0 && b + w == 4) {
-			break;
-		}
-
-		cin.clear();
-		cin.ignore(numeric_limits<streamsize>::max(), '\n');
-		cout << "흑과 백의 개수를 0 이상의 정수로 입력하고, 합이 4가 되도록 맞춰주세요." << endl;
-	}
-	tile* recent; //용도 없음
-	for (int i = 0; i < b; i++) { //유저흑색
-		rtvalue = getTile(trunk, usr, 0, recent);
-		if (rtvalue)
-			return rtvalue;
-	}
-	for (int i = 0; i < w; i++) { //유저백색
-		rtvalue = getTile(trunk, usr, 1, recent);
-		if (rtvalue)
-			return rtvalue;
-	}
-	for (int i = 0; i < 4; i++) { //컴퓨터
-		rtvalue = getTile(trunk, pc, 3, recent);
-		if (rtvalue)
-			return rtvalue;
-	}
-	return 0;
-}
-
-tile* getFirstHiddenTile(tile* head)
+Player otherPlayer(Player player)
 {
-	return findFirstHiddenTile(head);
+	return player == Player::Computer ? Player::User : Player::Computer;
 }
 
-void plushTile(tile* head)
+DavinciGame::DavinciGame(unsigned int seed)
+	: started_(false),
+	  currentPlayer_(Player::Computer),
+	  phase_(TurnPhase::Draw),
+	  rng_(seed)
 {
-	tile* position = head;
-	for (position = head; position != nullptr; ) {
-		tile* nowpos = position;
-		position = position->next;
-		delete nowpos;
+}
+
+void DavinciGame::start(int userBlackCount, int userWhiteCount)
+{
+	if (userBlackCount < 0 || userWhiteCount < 0 ||
+		userBlackCount + userWhiteCount != kInitialHandSize) {
+		throw std::invalid_argument("initial user tile counts must add up to 4");
+	}
+
+	started_ = true;
+	currentPlayer_ = Player::Computer;
+	phase_ = TurnPhase::Draw;
+	winner_.reset();
+	drawnTileIndex_.reset();
+	stock_.clear();
+	hands_[playerIndex(Player::Computer)].clear();
+	hands_[playerIndex(Player::User)].clear();
+
+	for (int number = 0; number < kTileCountPerColor; ++number) {
+		stock_.push_back({ TileColor::Black, number, false });
+		stock_.push_back({ TileColor::White, number, false });
+	}
+
+	for (int i = 0; i < userBlackCount; ++i) {
+		const std::size_t index = drawRandomTile(TileColor::Black);
+		insertSorted(Player::User, stock_[index]);
+		stock_.erase(stock_.begin() + static_cast<std::ptrdiff_t>(index));
+	}
+	for (int i = 0; i < userWhiteCount; ++i) {
+		const std::size_t index = drawRandomTile(TileColor::White);
+		insertSorted(Player::User, stock_[index]);
+		stock_.erase(stock_.begin() + static_cast<std::ptrdiff_t>(index));
+	}
+	for (int i = 0; i < kInitialHandSize; ++i) {
+		const TileColor color = canDraw(TileColor::Black) && canDraw(TileColor::White)
+			? (std::uniform_int_distribution<int>(0, 1)(rng_) == 0 ? TileColor::Black : TileColor::White)
+			: (canDraw(TileColor::Black) ? TileColor::Black : TileColor::White);
+		const std::size_t index = drawRandomTile(color);
+		insertSorted(Player::Computer, stock_[index]);
+		stock_.erase(stock_.begin() + static_cast<std::ptrdiff_t>(index));
 	}
 }
 
-int prtTile(tile* trunk, tile* pc, tile* usr) {
-	int b = 0, w = 0;
-	tile* position = nullptr;
-	b = countTile(trunk, 1, 0);
-	w = countTile(trunk, 1, 1);
-	cout << "=====================================" << endl;
-	cout << "남은 타일 || □:" << b << "  ■:" << w << endl;
-	cout << "=====================================\n" << endl;
-
-	int pdeck = 0, udeck = 0; // 덱 개수 카운트
-	cout << "==컴퓨터 덱==" << endl;
-
-	for (position = pc; position != nullptr; position = position->next) {
-		cout << (position->visibility ? "<" : "[") << pdeck + 1 <<
-			(position->white ? ": ■" : ": □") <<
-			(position->visibility ? to_string(position->number) : "??") <<
-			(position->visibility ? "> " : "] ");
-		pdeck++;
+bool DavinciGame::draw(TileColor color)
+{
+	if (!started_ || phase_ != TurnPhase::Draw || !canDraw(color)) {
+		return false;
 	}
 
-	/* 투시 핵
-	for (position = pc; position != nullptr; position = position->next) {
-		cout << (position->visibility ? "<" : "[") << pdeck + 1 <<
-			(position->white ? ": ■" : ": □") <<
-			position->number <<
-			(position->visibility ? "> " : "] ");
-		pdeck++;
-	}
-	*/
-	cout << endl << endl;
-	if (pdeck != countTile(pc, 0, 0))
-		return 171; //exception, should not happen
-	
-	position = nullptr;
+	const std::size_t index = drawRandomTile(color);
+	GameTile tile = stock_[index];
+	stock_.erase(stock_.begin() + static_cast<std::ptrdiff_t>(index));
+	drawnTileIndex_ = insertSorted(currentPlayer_, tile);
+	phase_ = TurnPhase::Guess;
+	return true;
+}
 
-	cout << "==플레이어 덱==" << endl;
-	for (position = usr; position != nullptr; position = position->next) {
-		cout << (position->visibility ? "<" : "[") << udeck + 1 <<
-			(position->white ? ": ■" : ": □") <<
-			position->number <<
-			(position->visibility ? ">" : "]") << "  ";
-		udeck++;
+GuessOutcome DavinciGame::guess(Player target, std::size_t tileIndex, int number)
+{
+	if (!started_ || phase_ == TurnPhase::GameOver || phase_ == TurnPhase::Draw ||
+		phase_ == TurnPhase::RevealOwnTile || target != otherPlayer(currentPlayer_) ||
+		tileIndex >= hand(target).size() || number < 0 || number >= kTileCountPerColor) {
+		return { GuessResult::InvalidMove, phase_, winner_, false };
 	}
-	cout << endl << endl;
-	if (udeck != countTile(usr, 0, 0))
-		return 172; //exception, should not happen
 
-	return 0;
+	std::vector<GameTile>& targetHand = mutableHand(target);
+	GameTile& targetTile = targetHand[tileIndex];
+	if (targetTile.revealed) {
+		return { GuessResult::AlreadyRevealed, phase_, winner_, false };
+	}
+
+	if (targetTile.number == number) {
+		targetTile.revealed = true;
+		finishIfGameOver();
+		if (phase_ != TurnPhase::GameOver) {
+			phase_ = TurnPhase::ContinueOrPass;
+		}
+		return { GuessResult::Correct, phase_, winner_, false };
+	}
+
+	if (drawnTileIndex_.has_value()) {
+		std::vector<GameTile>& ownHand = mutableHand(currentPlayer_);
+		if (*drawnTileIndex_ < ownHand.size()) {
+			ownHand[*drawnTileIndex_].revealed = true;
+		}
+		finishIfGameOver();
+		if (phase_ != TurnPhase::GameOver) {
+			advanceTurn();
+		}
+		return { GuessResult::Wrong, phase_, winner_, false };
+	}
+
+	phase_ = TurnPhase::RevealOwnTile;
+	return { GuessResult::Wrong, phase_, winner_, true };
+}
+
+bool DavinciGame::pass()
+{
+	if (!started_ || phase_ != TurnPhase::ContinueOrPass) {
+		return false;
+	}
+
+	advanceTurn();
+	return true;
+}
+
+bool DavinciGame::revealOwnTile(std::size_t tileIndex)
+{
+	if (!started_ || phase_ != TurnPhase::RevealOwnTile ||
+		tileIndex >= hand(currentPlayer_).size()) {
+		return false;
+	}
+
+	std::vector<GameTile>& ownHand = mutableHand(currentPlayer_);
+	if (ownHand[tileIndex].revealed) {
+		return false;
+	}
+
+	ownHand[tileIndex].revealed = true;
+	finishIfGameOver();
+	if (phase_ != TurnPhase::GameOver) {
+		advanceTurn();
+	}
+	return true;
+}
+
+bool DavinciGame::started() const
+{
+	return started_;
+}
+
+Player DavinciGame::currentPlayer() const
+{
+	return currentPlayer_;
+}
+
+TurnPhase DavinciGame::phase() const
+{
+	return phase_;
+}
+
+std::optional<Player> DavinciGame::winner() const
+{
+	return winner_;
+}
+
+std::optional<std::size_t> DavinciGame::drawnTileIndex() const
+{
+	return drawnTileIndex_;
+}
+
+const std::vector<GameTile>& DavinciGame::stock() const
+{
+	return stock_;
+}
+
+const std::vector<GameTile>& DavinciGame::hand(Player player) const
+{
+	return hands_[playerIndex(player)];
+}
+
+bool DavinciGame::canDraw(TileColor color) const
+{
+	return std::any_of(stock_.begin(), stock_.end(), [color](const GameTile& tile) {
+		return tile.color == color;
+	});
+}
+
+std::vector<GameTile>& DavinciGame::mutableHand(Player player)
+{
+	return hands_[playerIndex(player)];
+}
+
+std::size_t DavinciGame::drawRandomTile(TileColor color)
+{
+	std::vector<std::size_t> candidates;
+	for (std::size_t i = 0; i < stock_.size(); ++i) {
+		if (stock_[i].color == color) {
+			candidates.push_back(i);
+		}
+	}
+
+	if (candidates.empty()) {
+		throw std::logic_error("no tile of the requested color is available");
+	}
+
+	const std::size_t pick = std::uniform_int_distribution<std::size_t>(
+		0, candidates.size() - 1)(rng_);
+	return candidates[pick];
+}
+
+std::size_t DavinciGame::insertSorted(Player player, GameTile tile)
+{
+	std::vector<GameTile>& tiles = mutableHand(player);
+	const auto position = std::lower_bound(tiles.begin(), tiles.end(), tile, tileComesBefore);
+	const std::size_t index = static_cast<std::size_t>(position - tiles.begin());
+	tiles.insert(position, tile);
+	return index;
+}
+
+std::optional<Player> DavinciGame::findWinner() const
+{
+	if (started_ && !hasHiddenTile(Player::Computer)) {
+		return Player::User;
+	}
+	if (started_ && !hasHiddenTile(Player::User)) {
+		return Player::Computer;
+	}
+	return std::nullopt;
+}
+
+void DavinciGame::advanceTurn()
+{
+	currentPlayer_ = otherPlayer(currentPlayer_);
+	drawnTileIndex_.reset();
+	phase_ = stock_.empty() ? TurnPhase::Guess : TurnPhase::Draw;
+}
+
+void DavinciGame::finishIfGameOver()
+{
+	winner_ = findWinner();
+	if (winner_.has_value()) {
+		phase_ = TurnPhase::GameOver;
+	}
+}
+
+bool DavinciGame::hasHiddenTile(Player player) const
+{
+	const std::vector<GameTile>& tiles = hand(player);
+	return std::any_of(tiles.begin(), tiles.end(), [](const GameTile& tile) {
+		return !tile.revealed;
+	});
 }

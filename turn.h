@@ -1,8 +1,4 @@
-﻿#pragma once
+#pragma once
 
-#include "game.h"
-
-int pcTurn(tile*&, tile*&, tile*&, int&);
-int pcGuess(tile*&, tile*&, tile*&);
-int usrTurn(tile*&, tile*&, tile*&, int&);
-int usrGuess(tile*&, tile*&);
+// Turn handling now lives in DavinciGame. This header is kept so older includes
+// fail less noisily while the project moves toward a web-app engine.

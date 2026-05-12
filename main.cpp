@@ -1,10 +1,11 @@
-﻿#include <cstdlib>
+#include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <limits>
-#include "menus.h"
+
 #include "game.h"
-//나는 이 프로그래밍 과제를 다른 사람의 부적절한 도움 없이 완수하였습니다.
+#include "menus.h"
+
 using namespace std;
 
 namespace {
@@ -21,30 +22,40 @@ int readMenuChoice()
 		cout << "숫자를 입력하세요.\n" << endl;
 	}
 }
+
+void printEnginePreview()
+{
+	DavinciGame game(static_cast<unsigned int>(time(nullptr)));
+	game.start(2, 2);
+
+	cout << "게임 엔진이 초기화되었습니다.\n";
+	cout << "웹 앱에서 재사용할 수 있도록 콘솔 입출력과 게임 로직을 분리했습니다.\n";
+	cout << "현재 콘솔 플레이 루프는 제거되었고, 엔진 API는 game.h의 DavinciGame을 사용합니다.\n\n";
+	cout << "남은 타일: " << game.stock().size() << "\n";
+	cout << "컴퓨터 타일 수: " << game.hand(Player::Computer).size() << "\n";
+	cout << "플레이어 타일 수: " << game.hand(Player::User).size() << "\n\n";
+}
 }
 
 int main()
 {
 	srand(static_cast<unsigned int>(time(nullptr)));
-	int rtvalue = 0; //프로그램에 원치않는 동작시 리턴값을 저장한다
 
 	while (true) {
 		prtMenu();
-		int choice = readMenuChoice();
+		const int choice = readMenuChoice();
 		switch (choice) {
 		case 1:
-			prtManual(); 
+			prtManual();
 			break;
 		case 2:
-			rtvalue = goGame();
-			if (rtvalue) return rtvalue; //프로그램에 원치않는 동작시 특정 리턴값을 리턴하여 종료
+			printEnginePreview();
 			break;
 		case 3:
-			return rtvalue;
+			return 0;
 		default:
 			cout << "다시 선택하세요\n" << endl;
 			break;
 		}
 	}
-	return 0;
 }

@@ -4,6 +4,7 @@
 /Debug/
 /Release/
 /davinci-code
+/davinci-code-tests
 *.o
 *.obj
 *.exe
