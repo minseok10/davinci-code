@@ -6,6 +6,7 @@
 /davinci-code
 /davinci-code-tests
 /dist/
+.vite/
 node_modules/
 *.o
 *.obj
