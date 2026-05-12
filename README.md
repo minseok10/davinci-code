@@ -28,6 +28,34 @@ http://127.0.0.1:5173/
 npm run build
 ```
 
+## Cloudflare Pages 배포
+
+이 프로젝트는 정적 React + Vite 앱이므로 Cloudflare Pages에 바로 배포할 수 있습니다.
+
+### Cloudflare 대시보드로 배포
+
+1. GitHub 또는 GitLab 저장소에 이 프로젝트를 푸시합니다.
+2. Cloudflare 대시보드에서 **Workers & Pages > Create application > Pages**를 선택합니다.
+3. 저장소를 연결하고 아래처럼 설정합니다.
+
+```text
+Framework preset: React (Vite)
+Build command: npm run build
+Build output directory: dist
+Root directory: /
+```
+
+배포가 끝나면 `*.pages.dev` 주소가 생성됩니다. 이후 `main` 브랜치에 푸시할 때마다 자동으로 다시 배포됩니다.
+
+### CLI로 배포
+
+Cloudflare 계정에 로그인한 뒤 아래 명령을 실행합니다.
+
+```bash
+npm run build
+npx wrangler pages deploy dist
+```
+
 ## 주요 파일
 
 ```text
