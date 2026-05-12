@@ -35,12 +35,24 @@ function colorLabel(color: TileColor): string {
   return color === 'black' ? '흑' : '백';
 }
 
+function winnerMessage(winner: Player): string {
+  return `${playerLabel[winner]} 승리`;
+}
+
 function countStock(game: DavinciGame, color: TileColor): number {
   return game.stock().filter((tile) => tile.color === color).length;
 }
 
 function firstHiddenIndex(hand: GameTile[]): number {
   return hand.findIndex((tile) => !tile.revealed);
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Math.min(max, Math.max(min, Math.trunc(value)));
 }
 
 function App() {
@@ -55,7 +67,8 @@ function App() {
   const currentPlayer = game.currentPlayer();
   const targetPlayer = otherPlayer(currentPlayer);
   const started = game.started();
-  const userWhiteCount = 4 - userBlackCount;
+  const safeUserBlackCount = clampNumber(userBlackCount, 0, 4);
+  const userWhiteCount = 4 - safeUserBlackCount;
 
   const visibleVersion = version;
   const blackStock = useMemo(() => countStock(game, 'black'), [game, visibleVersion]);
@@ -67,7 +80,8 @@ function App() {
 
   function startGame() {
     gameRef.current = new DavinciGame();
-    gameRef.current.start(userBlackCount, userWhiteCount);
+    gameRef.current.start(safeUserBlackCount, userWhiteCount);
+    setUserBlackCount(safeUserBlackCount);
     setSelectedTileIndex(null);
     setGuessNumber(0);
     setMessage('플레이어 1의 차례입니다.');
@@ -95,13 +109,18 @@ function App() {
       return;
     }
 
-    const outcome = game.guess(targetPlayer, selectedTileIndex, guessNumber);
-    setMessage(
-      `${resultLabel[outcome.result]}: ${playerLabel[targetPlayer]}의 ${selectedTileIndex + 1}번째 타일을 ${guessNumber}로 추리했습니다.`,
-    );
+    const safeGuessNumber = clampNumber(guessNumber, 0, 11);
+    setGuessNumber(safeGuessNumber);
 
-    if (outcome.result === 'correct') {
+    const outcome = game.guess(targetPlayer, selectedTileIndex, safeGuessNumber);
+    const baseMessage = `${resultLabel[outcome.result]}: ${playerLabel[targetPlayer]}의 ${selectedTileIndex + 1}번째 타일을 ${safeGuessNumber}로 추리했습니다.`;
+    setMessage(game.winner() ? winnerMessage(game.winner()!) : baseMessage);
+
+    if (outcome.result === 'correct' && !game.winner()) {
       setSelectedTileIndex(firstHiddenIndex(game.hand(targetPlayer)));
+    }
+    if (game.winner()) {
+      setSelectedTileIndex(null);
     }
     if (outcome.result === 'wrong') {
       setSelectedTileIndex(null);
@@ -110,8 +129,10 @@ function App() {
   }
 
   function continueGuessing() {
-    setSelectedTileIndex(firstHiddenIndex(game.hand(targetPlayer)));
-    setMessage(`${playerLabel[currentPlayer]}가 계속 추리합니다.`);
+    if (game.continueGuess()) {
+      setSelectedTileIndex(firstHiddenIndex(game.hand(targetPlayer)));
+      setMessage(`${playerLabel[currentPlayer]}가 계속 추리합니다.`);
+    }
     refresh();
   }
 
@@ -125,7 +146,7 @@ function App() {
 
   function revealOwnTile(index: number) {
     if (game.revealOwnTile(index)) {
-      setMessage(`${playerLabel[game.currentPlayer()]}의 차례입니다.`);
+      setMessage(game.winner() ? winnerMessage(game.winner()!) : `${playerLabel[game.currentPlayer()]}의 차례입니다.`);
       setSelectedTileIndex(null);
     } else {
       setMessage('공개할 수 없는 타일입니다.');
@@ -159,7 +180,7 @@ function App() {
                 max="4"
                 type="number"
                 value={userBlackCount}
-                onChange={(event) => setUserBlackCount(Number(event.target.value))}
+                onChange={(event) => setUserBlackCount(clampNumber(Number(event.target.value), 0, 4))}
               />
             </label>
             <label>
@@ -190,7 +211,7 @@ function App() {
             </div>
             <div>
               <span>결과</span>
-              <strong>{game.winner() ? `${playerLabel[game.winner()!]} 승리` : '진행 중'}</strong>
+              <strong>{game.winner() ? winnerMessage(game.winner()!) : '진행 중'}</strong>
             </div>
           </section>
 
@@ -205,7 +226,7 @@ function App() {
                 onSelectTarget={(index) => {
                   if (
                     player === targetPlayer &&
-                    (game.phase() === 'guess' || game.phase() === 'continueOrPass') &&
+                    game.phase() === 'guess' &&
                     !game.hand(player)[index].revealed
                   ) {
                     setSelectedTileIndex(index);
@@ -233,7 +254,7 @@ function App() {
               </div>
             )}
 
-            {(game.phase() === 'guess' || game.phase() === 'continueOrPass') && (
+            {game.phase() === 'guess' && (
               <div className="guess-panel">
                 <label>
                   상대 타일
@@ -258,22 +279,23 @@ function App() {
                     max="11"
                     type="number"
                     value={guessNumber}
-                    onChange={(event) => setGuessNumber(Number(event.target.value))}
+                    onChange={(event) => setGuessNumber(clampNumber(Number(event.target.value), 0, 11))}
                   />
                 </label>
                 <button type="button" onClick={submitGuess}>
                   추리
                 </button>
-                {game.phase() === 'continueOrPass' && (
-                  <>
-                    <button className="secondary-button" type="button" onClick={continueGuessing}>
-                      계속하기
-                    </button>
-                    <button className="danger-button" type="button" onClick={passTurn}>
-                      패스
-                    </button>
-                  </>
-                )}
+              </div>
+            )}
+
+            {game.phase() === 'continueOrPass' && (
+              <div className="choice-panel">
+                <button type="button" onClick={continueGuessing}>
+                  계속 추리
+                </button>
+                <button className="danger-button" type="button" onClick={passTurn}>
+                  패스
+                </button>
               </div>
             )}
 
@@ -286,7 +308,7 @@ function App() {
 
             {game.phase() === 'gameOver' && (
               <div className="game-over">
-                <strong>{playerLabel[game.winner()!]} 승리</strong>
+                <strong>{winnerMessage(game.winner()!)}</strong>
                 <button type="button" onClick={startGame}>
                   다시 시작
                 </button>

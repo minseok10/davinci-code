@@ -157,6 +157,15 @@ export class DavinciGame {
     return true;
   }
 
+  continueGuess(): boolean {
+    if (!this.startedValue || this.phaseValue !== 'continueOrPass') {
+      return false;
+    }
+
+    this.phaseValue = 'guess';
+    return true;
+  }
+
   revealOwnTile(tileIndex: number): boolean {
     if (
       !this.startedValue ||
