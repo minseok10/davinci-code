@@ -5,6 +5,8 @@
 /Release/
 /davinci-code
 /davinci-code-tests
+/dist/
+node_modules/
 *.o
 *.obj
 *.exe
