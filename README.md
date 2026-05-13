@@ -8,6 +8,11 @@ React + Vite로 만든 플레이어 대 PC 다빈치 코드 웹 앱입니다.
 
 과거 C++ 콘솔 버전은 `console`, `original` 브랜치에서 확인할 수 있습니다.
 
+## 과제 자료
+
+- [`Assignment1.pdf`](Assignment1.pdf): 다빈치 코드 콘솔 프로그램 구현 과제 공고입니다.
+- [`report.pdf`](report.pdf): C++ 콘솔 버전 구현 과정과 결과를 정리한 과제 보고서입니다.
+
 ## 배포 URL
 
 Cloudflare Pages에 배포된 앱은 아래 주소에서 바로 실행할 수 있습니다.
